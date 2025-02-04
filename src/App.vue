@@ -86,19 +86,40 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 
-const holeNumber = ref(1)
-const selectedClub = ref('ドライバー')
-const selectedResult = ref('〇')
-const selectedConditions = ref([])
-const scores = ref({})
-const isEditing = ref(false)
-const editingHole = ref(null)
-const editingIndex = ref(null)
+interface Shot {
+  club: string
+  result: string
+  conditions: string[]
+}
 
-const clubs = ['1W', '3W', '5W', '4U', '5I', '6I', '7I', '8I', '9I', 'PW', 'AP', 'AW', 'SW', 'PT']
+const holeNumber = ref<number>(1)
+const selectedClub = ref<string>('ドライバー')
+const selectedResult = ref<string>('〇')
+const selectedConditions = ref<string[]>([])
+const scores = ref<Record<number, Shot[]>>({})
+const isEditing = ref<boolean>(false)
+const editingHole = ref<number | null>(null)
+const editingIndex = ref<number | null>(null)
+
+const clubs: string[] = [
+  '1W',
+  '3W',
+  '5W',
+  '4U',
+  '5I',
+  '6I',
+  '7I',
+  '8I',
+  '9I',
+  'PW',
+  'AP',
+  'AW',
+  'SW',
+  'PT',
+]
 
 const results = [
   { label: '〇（成功）', value: '〇' },
@@ -106,7 +127,7 @@ const results = [
   { label: '×（ミス）', value: '×' },
 ]
 
-const conditions = [
+const conditions: string[] = [
   'フェアウェイ',
   'ラフ',
   'バンカー',
@@ -123,13 +144,13 @@ const conditions = [
   '打ち下ろし',
 ]
 
-const currentShotCount = computed(() => {
+const currentShotCount = computed<number>(() => {
   return isEditing.value
-    ? editingIndex.value + 1
+    ? (editingIndex.value ?? 0) + 1
     : (scores.value[holeNumber.value]?.length || 0) + 1
 })
 
-const toggleCondition = (condition) => {
+const toggleCondition = (condition: string) => {
   if (selectedConditions.value.includes(condition)) {
     selectedConditions.value = selectedConditions.value.filter((c) => c !== condition)
   } else {
@@ -149,12 +170,11 @@ const addShot = () => {
   selectedConditions.value = []
 }
 
-const editShot = (hole, index, shot) => {
+const editShot = (hole: number, index: number, shot: Shot) => {
   holeNumber.value = hole
   selectedClub.value = shot.club
   selectedResult.value = shot.result
   selectedConditions.value = [...shot.conditions]
-
   isEditing.value = true
   editingHole.value = hole
   editingIndex.value = index
@@ -187,14 +207,14 @@ const nextHole = () => {
   if (holeNumber.value < 18) holeNumber.value++
 }
 
-const deleteShot = (hole, index) => {
+const deleteShot = (hole: number, index: number) => {
   scores.value[hole].splice(index, 1)
   if (scores.value[hole].length === 0) {
     delete scores.value[hole]
   }
 }
 
-const totalScore = computed(() => {
+const totalScore = computed<number>(() => {
   return Object.values(scores.value).reduce((sum, shots) => sum + shots.length, 0)
 })
 </script>
