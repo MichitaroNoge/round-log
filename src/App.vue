@@ -1,16 +1,16 @@
 <template>
   <div class="container">
-    <h1>ゴルフラウンド記録</h1>
+    <h2>Round Log</h2>
 
     <div class="score-input">
-      <label>ホール番号: </label>
       <div class="hole-selector">
         <button @click="prevHole">◀</button>
         <input type="number" v-model="holeNumber" min="1" max="18" />
+        <label>H</label>
         <button @click="nextHole">▶</button>
       </div>
 
-      <h3>{{ currentShotCount }}打目</h3>
+      <h2>{{ currentShotCount }}打目</h2>
 
       <label>クラブ: </label>
       <div class="button-group">
@@ -36,7 +36,7 @@
         </button>
       </div>
 
-      <label>打席の状況: </label>
+      <label>状況: </label>
       <div class="button-group">
         <button
           v-for="condition in conditions"
@@ -52,13 +52,14 @@
         {{ isEditing ? '更新' : '追加' }}
       </button>
     </div>
-
-    <h2>スコア一覧</h2>
+    <h3>トータルスコア: {{ totalScore }}</h3>
+    <h4>パット数: {{ totalPTCount }}</h4>
+    <h4>バンカーショット数: {{ totalBunkerShots }}</h4>
     <table>
       <thead>
         <tr>
           <th>ホール</th>
-          <th>ショット数</th>
+          <th>打数</th>
           <th>詳細</th>
         </tr>
       </thead>
@@ -68,21 +69,21 @@
           <td>{{ shots.length }}</td>
           <td>
             <ul>
-              <li v-for="(shot, index) in shots" :key="index">
+              <li v-for="(shot, index) in shots" :key="index" class="shot-details">
                 <span>{{ index + 1 }}打目: {{ shot.club }} - {{ shot.result }}</span>
                 <br />
                 <small>状況: {{ shot.conditions.join(', ') || 'なし' }}</small>
                 <br />
-                <button class="edit-btn" @click="editShot(hole, index, shot)">編集</button>
-                <button class="delete-btn" @click="deleteShot(hole, index)">削除</button>
+                <div class="button-column">
+                  <button class="edit-btn" @click="editShot(hole, index, shot)">変更</button>
+                  <button class="delete-btn" @click="deleteShot(hole, index)">削除</button>
+                </div>
               </li>
             </ul>
           </td>
         </tr>
       </tbody>
     </table>
-
-    <h3>合計スコア: {{ totalScore }}</h3>
   </div>
 </template>
 
@@ -96,7 +97,7 @@ interface Shot {
 }
 
 const holeNumber = ref<number>(1)
-const selectedClub = ref<string>('ドライバー')
+const selectedClub = ref<string>('1W')
 const selectedResult = ref<string>('〇')
 const selectedConditions = ref<string[]>([])
 const scores = ref<Record<number, Shot[]>>({})
@@ -122,7 +123,7 @@ const clubs: string[] = [
 ]
 
 const results = [
-  { label: '〇（成功）', value: '〇' },
+  { label: '〇（Good!!）', value: '〇' },
   { label: '△（普通）', value: '△' },
   { label: '×（ミス）', value: '×' },
 ]
@@ -143,7 +144,6 @@ const conditions: string[] = [
   '打ち上げ',
   '打ち下ろし',
 ]
-
 const currentShotCount = computed<number>(() => {
   return isEditing.value
     ? (editingIndex.value ?? 0) + 1
@@ -195,16 +195,16 @@ const resetEditing = () => {
   isEditing.value = false
   editingHole.value = null
   editingIndex.value = null
-  selectedClub.value = 'ドライバー'
+  selectedClub.value = '1W'
   selectedResult.value = '〇'
   selectedConditions.value = []
 }
 
 const prevHole = () => {
-  if (holeNumber.value > 1) holeNumber.value--
+  holeNumber.value = holeNumber.value > 1 ? holeNumber.value - 1 : 18
 }
 const nextHole = () => {
-  if (holeNumber.value < 18) holeNumber.value++
+  holeNumber.value = holeNumber.value < 18 ? holeNumber.value + 1 : 1
 }
 
 const deleteShot = (hole: number, index: number) => {
@@ -217,6 +217,18 @@ const deleteShot = (hole: number, index: number) => {
 const totalScore = computed<number>(() => {
   return Object.values(scores.value).reduce((sum, shots) => sum + shots.length, 0)
 })
+
+const totalPTCount = computed<number>(() => {
+  return Object.values(scores.value)
+    .flat()
+    .filter((shot) => shot.club === 'PT').length
+})
+
+const totalBunkerShots = computed<number>(() => {
+  return Object.values(scores.value)
+    .flat()
+    .filter((shot) => shot.conditions.includes('バンカー')).length
+})
 </script>
 
 <style>
@@ -225,15 +237,30 @@ const totalScore = computed<number>(() => {
   margin: auto;
   text-align: center;
 }
+.shot-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.button-column {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+  margin-left: 10px;
+}
 .score-input {
   margin-bottom: 20px;
 }
 .hole-selector {
+  font-size: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   margin: 10px 0;
+}
+.hole-selector input {
+  font-size: 24px;
 }
 .hole-selector button {
   padding: 5px 15px;
@@ -269,8 +296,14 @@ button.add-btn {
   color: white;
   border: none;
 }
+h2 {
+  margin: 10px 0;
+}
 h3 {
   margin: 10px 0;
+}
+h4 {
+  margin: 0px 0;
 }
 .edit-btn {
   background-color: #ffa500;
@@ -291,7 +324,7 @@ table {
 th,
 td {
   border: 1px solid #000; /* 罫線を追加 */
-  padding: 8px;
+  padding: 0px;
   text-align: center;
 }
 
