@@ -29,3 +29,18 @@ defineProps({
   },
 })
 </script>
+
+<style scoped>
+button {
+  min-width: 100px;
+}
+.button-group {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+button.selected {
+  background-color: #4caf50;
+  color: white;
+}
+</style>

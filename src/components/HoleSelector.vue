@@ -1,9 +1,9 @@
 <!-- components/HoleSelector.vue -->
 <template>
   <div class="hole-selector">
-    <button :disabled="disabled" @click="prevHole">◀</button>
-    <span>{{ localHoleNumber }}H</span>
-    <button :disabled="disabled" @click="nextHole">▶</button>
+    <button :disabled="disabled" @click="prevHole">◀ Prev H</button>
+    <H3>{{ localHoleNumber }}H</H3>
+    <button :disabled="disabled" @click="nextHole">Next H ▶</button>
   </div>
 </template>
 

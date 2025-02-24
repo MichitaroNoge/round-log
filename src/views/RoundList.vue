@@ -1,23 +1,27 @@
 <template>
-  <div>
+  <div class="container">
     <div>
+      <h3>--新しいラウンドを作る--</h3>
       <label for="roundDate">日付:</label>
       <input type="date" v-model="newRoundDate" id="roundDate" />
+    </div>
 
+    <div>
       <label for="courseName">コース名:</label>
       <input type="text" v-model="newCourseName" id="courseName" />
-
+    </div>
+    <div>
       <button
         class="enabled-button"
         @click="createNewRound"
         :disabled="!isFormValid"
         :class="{ 'disabled-button': !isFormValid }"
       >
-        新しいラウンド作成
+        ラウンド作成
       </button>
     </div>
-
-    <h3>過去のラウンド</h3>
+    <p></p>
+    <h3>--過去のラウンドを見る--</h3>
     <ul>
       <li v-for="round in uniqueRounds" :key="`${round.round_date}-${round.course_name}`">
         <router-link :to="`/round/${round.id}/${round.round_date}/${round.course_name}`">
@@ -28,19 +32,23 @@
         </button>
       </li>
     </ul>
+    <footer>
+      <button @click="logout">ログアウト</button>
+    </footer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { supabase } from '../supabase'
+import { supabase } from '../api/supabase'
+import { useAuth } from '@/composables/useAuth'
 
 const rounds = ref<any[]>([])
-const uniqueRounds = ref<any[]>([])
 const newRoundDate = ref<string>('')
 const newCourseName = ref<string>('')
 const router = useRouter()
+const { logout } = useAuth()
 
 // 今日の日付をセットする
 const setTodayDate = () => {
@@ -62,7 +70,6 @@ const fetchRounds = async () => {
     if (error) throw new Error(error.message)
 
     rounds.value = data
-    removeDuplicates()
   } catch (err) {
     if (err instanceof Error) {
       console.error('データ取得エラー:', err.message)
@@ -78,24 +85,18 @@ onMounted(() => {
   fetchRounds()
 })
 
-// 重複データを取り除く（明細を全取得しているため）
-const removeDuplicates = () => {
+// 重複データを取り除く
+const uniqueRounds = computed(() => {
   const seen = new Set()
-  uniqueRounds.value = rounds.value
-    .filter((round) => {
-      const key = `${round.round_date}-${round.course_name}`
-      if (!seen.has(key)) {
-        seen.add(key)
-        return true
-      }
-      return false
-    })
-    .map((round) => ({
-      id: round.id, // id を保持する
-      round_date: round.round_date,
-      course_name: round.course_name,
-    }))
-}
+  return rounds.value.filter((round) => {
+    const key = `${round.round_date}-${round.course_name}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      return true
+    }
+    return false
+  })
+})
 
 // 日付とコース名が両方とも入力されている場合にボタンを有効にする
 const isFormValid = computed(() => {
@@ -104,16 +105,13 @@ const isFormValid = computed(() => {
 
 // 新しいラウンドを作成する
 const createNewRound = async () => {
-  if (!newCourseName.value) {
-  }
-
-  if (!newRoundDate.value || !newCourseName.value.trim()) {
+  if (!isFormValid.value) {
     alert('日付とコース名を入力してください')
     return
   }
 
   // 作成したラウンドの詳細ページに遷移
-  router.push(`/round/$0/${newRoundDate.value}/${newCourseName.value.trim()}`)
+  router.push(`/round/new/${newRoundDate.value}/${newCourseName.value.trim()}`)
 }
 
 // ラウンドを削除する
@@ -128,19 +126,28 @@ const deleteRound = async (roundDate: Date, courseName: string) => {
     if (error) throw new Error(error.message)
 
     // 削除後にリストを更新
-    rounds.value = rounds.value.filter((round) => round.roundDate !== roundDate)
-    fetchRounds()
+    rounds.value = rounds.value.filter(
+      (round) => !(round.round_date === roundDate && round.course_name === courseName),
+    )
   } catch (err) {
-    if (err instanceof Error) {
-      console.error('削除エラー:', err.message)
-    } else {
-      console.error('不明なエラーが発生しました。')
-    }
+    console.error('削除エラー:', err instanceof Error ? err.message : '不明なエラー')
   }
 }
 </script>
 
-<style>
+<style scoped>
+.container {
+  max-width: 600px;
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none; /* テキスト選択を防止 */
+  touch-action: pan-y; /* 垂直スクロールは許可、横スクロールはジェスチャーで制御 */
+}
+
 body {
   padding-top: 10px;
   padding-left: 20px;
@@ -158,5 +165,13 @@ body {
   cursor: not-allowed;
   opacity: 0.6; /* 透明度を少し下げる */
   border: none;
+}
+footer {
+  width: 100%;
+  border-top: 2px solid #ccc; /* 横線の色と太さ */
+  padding-top: 10px; /* 上側の余白 */
+}
+li {
+  padding: 1px;
 }
 </style>
