@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/api/supabase'
 
+const isAuthenticated = ref(false)
+
 export function useAuth() {
   const router = useRouter()
   const errorMessage = ref('')
@@ -24,6 +26,7 @@ export function useAuth() {
 
     if (data.session) {
       saveSession(data.session)
+      isAuthenticated.value = true
       router.push('/round-list') // 成功時に遷移
     }
   }
@@ -35,6 +38,7 @@ export function useAuth() {
 
     if (error) {
       errorMessage.value = error.message
+      isAuthenticated.value = false
       return
     }
     router.push('/round-list')
@@ -51,8 +55,10 @@ export function useAuth() {
       if (error) {
         console.error('Session refresh failed:', error.message)
         localStorage.removeItem('supabase_session')
+        isAuthenticated.value = false
         return
       }
+      isAuthenticated.value = true
       saveSession(data.session)
     }
 
@@ -63,9 +69,10 @@ export function useAuth() {
   // ログアウト
   const logout = async () => {
     await supabase.auth.signOut()
+    isAuthenticated.value = false
     localStorage.removeItem('supabase_session')
     router.push('/')
   }
 
-  return { login, signUp, autoLogin, logout, errorMessage }
+  return { login, signUp, autoLogin, logout, errorMessage, isAuthenticated }
 }

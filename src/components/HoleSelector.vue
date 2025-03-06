@@ -1,16 +1,15 @@
 <!-- components/HoleSelector.vue -->
 <template>
   <div class="hole-selector">
-    <button :disabled="disabled" @click="prevHole">◀ Prev H</button>
-    <H3>{{ localHoleNumber }}H</H3>
-    <button :disabled="disabled" @click="nextHole">Next H ▶</button>
+    <button class="prev-button" :disabled="disabled" @click="prevHole">◀ 前のホール</button>
+    <h3>{{ localHoleNumber }}H</h3>
+    <button class="next-button" :disabled="disabled" @click="nextHole">次のホール ▶</button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-// Propsの定義
 const props = defineProps<{
   holeNumber: number
   min: number
@@ -55,10 +54,31 @@ const nextHole = () => {
 
 <style scoped>
 .hole-selector {
+  font-size: 20px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 15px;
 }
-.hole-selector button {
-  margin: 0 5px;
+
+button.prev-button,
+button.next-button {
+  min-width: 80px;
+  height: 30px;
+  font-size: 12px;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 0;
+  background-color: #79718a;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin: 0;
+  margin-right: -1px;
+  border-radius: 4px;
+}
+
+h3 {
+  margin: 10px; /* 子要素の余白を削除 */
 }
 </style>

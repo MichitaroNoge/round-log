@@ -1,17 +1,13 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import UserLogin from '../views/UserLogin.vue'
 import RoundList from '../views/RoundList.vue'
 import RoundDetail from '../views/RoundDetail.vue'
-import HomeView from '../views/HomeView.vue'
-import AboutView from '../views/AboutView.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(), //GitHub PagesはcreateWebHistory()と相性が悪いのでのでcreateWebHashHistoryを使用する
 
   routes: [
     { path: '/', name: 'UserLogin', component: UserLogin },
-    { path: '/home', name: 'Home', component: HomeView },
-    { path: '/about', name: 'About', component: AboutView },
     {
       path: '/round-list',
       name: 'RoundList',

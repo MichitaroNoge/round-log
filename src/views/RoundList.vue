@@ -1,39 +1,54 @@
 <template>
   <div class="container">
-    <div>
-      <h3>--新しいラウンドを作る--</h3>
-      <label for="roundDate">日付:</label>
-      <input type="date" v-model="newRoundDate" id="roundDate" />
-    </div>
+    <!-- 新しいラウンド作成フォーム -->
+    <div class="card">
+      <h3>⛳ 新しいラウンドを作成</h3>
+      <label for="roundDate">📅 日付</label>
+      <input type="date" v-model="newRoundDate" id="roundDate" class="input-field" />
 
-    <div>
-      <label for="courseName">コース名:</label>
-      <input type="text" v-model="newCourseName" id="courseName" />
-    </div>
-    <div>
+      <label for="courseName">🏌️ コース名</label>
+      <input
+        type="text"
+        v-model="newCourseName"
+        id="courseName"
+        placeholder="例: グリーンヒルズGC"
+        class="input-field"
+      />
+
       <button
-        class="enabled-button"
+        class="primary-button"
         @click="createNewRound"
         :disabled="!isFormValid"
-        :class="{ 'disabled-button': !isFormValid }"
+        :class="{ disabled: !isFormValid }"
       >
         ラウンド作成
       </button>
     </div>
-    <p></p>
-    <h3>--過去のラウンドを見る--</h3>
-    <ul>
-      <li v-for="round in uniqueRounds" :key="`${round.round_date}-${round.course_name}`">
-        <router-link :to="`/round/${round.id}/${round.round_date}/${round.course_name}`">
+
+    <!-- 過去のラウンド一覧 -->
+    <h3>📖 過去のラウンド</h3>
+    <div v-if="uniqueRounds.length" class="round-list">
+      <div
+        v-for="round in uniqueRounds"
+        :key="`${round.round_date}-${round.course_name}`"
+        class="round-card"
+      >
+        <router-link
+          :to="`/round/${round.id}/${round.round_date}/${round.course_name}`"
+          class="round-link"
+        >
           {{ round.round_date }} - {{ round.course_name }}
         </router-link>
-        <button class="enabled-button" @click="deleteRound(round.round_date, round.course_name)">
-          削除
+        <button @click="deleteRound(round.round_date, round.course_name)" class="delete-button">
+          🗑️
         </button>
-      </li>
-    </ul>
+      </div>
+    </div>
+    <p v-else>まだラウンドの記録がありません。</p>
+
+    <!-- ログアウトボタン -->
     <footer>
-      <button @click="logout">ログアウト</button>
+      <button class="secondary-button" @click="logout">ログアウト</button>
     </footer>
   </div>
 </template>
@@ -71,15 +86,11 @@ const fetchRounds = async () => {
 
     rounds.value = data
   } catch (err) {
-    if (err instanceof Error) {
-      console.error('データ取得エラー:', err.message)
-    } else {
-      console.error('不明なエラーが発生しました')
-    }
+    console.error('データ取得エラー:', (err as Error).message)
   }
 }
 
-// mountedフックで処理を実行
+// 初期処理
 onMounted(() => {
   setTodayDate()
   fetchRounds()
@@ -98,24 +109,20 @@ const uniqueRounds = computed(() => {
   })
 })
 
-// 日付とコース名が両方とも入力されている場合にボタンを有効にする
-const isFormValid = computed(() => {
-  return newRoundDate.value && newCourseName.value.trim() !== ''
-})
+// フォームの入力確認
+const isFormValid = computed(() => newRoundDate.value && newCourseName.value.trim() !== '')
 
-// 新しいラウンドを作成する
-const createNewRound = async () => {
-  if (!isFormValid.value) {
-    alert('日付とコース名を入力してください')
-    return
-  }
-
-  // 作成したラウンドの詳細ページに遷移
+// 新しいラウンドを作成
+const createNewRound = () => {
+  if (!isFormValid.value) return alert('日付とコース名を入力してください')
   router.push(`/round/new/${newRoundDate.value}/${newCourseName.value.trim()}`)
 }
 
-// ラウンドを削除する
+// ラウンドを削除
 const deleteRound = async (roundDate: Date, courseName: string) => {
+  const confirmDelete = confirm('本当に削除しますか？')
+  if (!confirmDelete) return
+
   try {
     const { error } = await supabase
       .from('golf_shots')
@@ -125,53 +132,129 @@ const deleteRound = async (roundDate: Date, courseName: string) => {
 
     if (error) throw new Error(error.message)
 
-    // 削除後にリストを更新
     rounds.value = rounds.value.filter(
       (round) => !(round.round_date === roundDate && round.course_name === courseName),
     )
   } catch (err) {
-    console.error('削除エラー:', err instanceof Error ? err.message : '不明なエラー')
+    console.error('削除エラー:', (err as Error).message)
   }
 }
 </script>
 
 <style scoped>
+/* ベースデザイン */
 .container {
-  max-width: 600px;
+  max-width: 700px;
   margin: auto;
+  padding: 20px;
   text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  user-select: none; /* テキスト選択を防止 */
-  touch-action: pan-y; /* 垂直スクロールは許可、横スクロールはジェスチャーで制御 */
+  font-family: 'Roboto', sans-serif;
 }
 
-body {
-  padding-top: 10px;
-  padding-left: 20px;
+/* カードスタイル */
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 32px;
 }
-.enabled-button {
-  margin-left: 10px;
-  background-color: #008cba;
-  color: white;
-  border: none;
+
+h3 {
+  color: #2c3e50;
+  margin-bottom: 16px;
 }
-.disabled-button {
-  margin-left: 10px;
-  background-color: #ccc;
-  color: #666;
-  cursor: not-allowed;
-  opacity: 0.6; /* 透明度を少し下げる */
-  border: none;
+
+/* 入力フィールド */
+label {
+  display: block;
+  text-align: left;
+  margin: 8px 0;
+  font-weight: bold;
 }
-footer {
+
+.input-field {
   width: 100%;
-  border-top: 2px solid #ccc; /* 横線の色と太さ */
-  padding-top: 10px; /* 上側の余白 */
+  padding: 10px;
+  margin-bottom: 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-sizing: border-box;
+  max-width: 400px; /* 入力フィールドの幅を調整 */
+  margin-left: auto;
+  margin-right: auto;
 }
-li {
-  padding: 1px;
+
+/* ボタン */
+.primary-button,
+.secondary-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.primary-button {
+  background-color: #4caf50;
+  color: white;
+}
+
+.primary-button:hover {
+  background-color: #45a049;
+}
+
+.secondary-button {
+  background-color: #4682b4; /* 控えめな青色 */
+  color: white;
+}
+
+.secondary-button:hover {
+  background-color: #4169e1; /* さらに濃い青 */
+}
+
+.disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* ラウンド一覧 */
+.round-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.round-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.round-link {
+  text-decoration: none;
+  color: #2c3e50;
+  font-weight: bold;
+}
+
+.round-link:hover {
+  text-decoration: underline;
+}
+
+/* 削除ボタン */
+.delete-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* フッター */
+footer {
+  margin-top: 32px;
 }
 </style>

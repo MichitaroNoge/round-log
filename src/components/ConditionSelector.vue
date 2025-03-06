@@ -12,6 +12,7 @@
 </template>
 
 <script setup lang="ts">
+// コンポーネントのプロパティを定義
 const props = defineProps({
   filteredConditions: {
     type: Array as () => string[],
@@ -27,6 +28,7 @@ const props = defineProps({
   },
 })
 
+// Emit: 更新されたselectedConditionsのイベントを親に通知
 const emit = defineEmits<{
   (e: 'update:selectedConditions', selectedConditions: string[]): void
 }>()
@@ -60,11 +62,21 @@ const toggleCondition = (condition: string) => {
 
 <style scoped>
 button {
-  min-width: 100px;
+  min-width: 80px;
+  height: 30px;
+  font-size: 12px;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 0;
+  background-color: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin: 0;
+  margin-right: -1px;
 }
 .button-group {
-  display: flex;
-  gap: 5px;
+  display: inline-flex;
   justify-content: center;
 }
 button.selected {

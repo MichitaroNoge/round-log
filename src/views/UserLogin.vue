@@ -2,25 +2,33 @@
 import { useAuth } from '@/composables/useAuth'
 import { ref, onMounted } from 'vue'
 
-const { login, signUp, autoLogin, errorMessage } = useAuth()
+const { login, signUp, autoLogin, errorMessage, isAuthenticated } = useAuth()
 
 const email = ref('')
 const password = ref('')
+const isLoading = ref(true)
 
-onMounted(() => {
-  autoLogin()
+onMounted(async () => {
+  await autoLogin()
+  isLoading.value = false
 })
 </script>
 
 <template>
-  <h2>Round Log</h2>
-  <div class="form-container">
-    <input v-model="email" type="email" placeholder="メールアドレス" />
-    <input v-model="password" type="password" placeholder="パスワード" />
-    <button @click="login(email, password)">ログイン</button>
-    <button @click="signUp(email, password)">アカウント登録</button>
-    <p v-if="errorMessage">{{ errorMessage }}</p>
-  </div>
+  <template v-if="isLoading">
+    <p>Loading...</p>
+  </template>
+
+  <template v-else-if="!isAuthenticated">
+    <h2>Round Log</h2>
+    <div class="form-container">
+      <input v-model="email" type="email" placeholder="メールアドレス" />
+      <input v-model="password" type="password" placeholder="パスワード" />
+      <button @click="login(email, password)">ログイン</button>
+      <button @click="signUp(email, password)">アカウント登録</button>
+      <p v-if="errorMessage">{{ errorMessage }}</p>
+    </div>
+  </template>
 </template>
 
 <style scoped>

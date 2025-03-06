@@ -1,98 +1,5 @@
-<template>
-  <div class="container">
-    <h2 class="animate__animated animate__fadeIn">Round Log</h2>
-
-    <router-link to="/round-list">戻る</router-link>
-
-    <div class="score-input">
-      <HoleSelector
-        :holeNumber="holeNumber"
-        :min="1"
-        :max="18"
-        :disabled="isEditing"
-        @update:holeNumber="updateHole"
-      />
-
-      <h2>{{ currentShotCount }}打目</h2>
-
-      <label>クラブ: </label>
-      <ClubSelector :clubs="clubs" :selectedClub="selectedClub" :selectClub="selectClub" />
-
-      <label>結果: </label>
-      <ResultSelector
-        :resultList="resultList"
-        :selectedResult="selectedResult"
-        :selectResult="selectResult"
-      />
-
-      <label>結果(詳細): </label>
-      <DetailResultSelector
-        :detailResultList="detailResultList"
-        :selectedDetailResult="selectedDetailResult"
-        :selectDetailResult="selectDetailResult"
-      />
-
-      <label>状況: </label>
-      <ConditionSelector
-        :filteredConditions="filteredConditions"
-        :selectedConditions="selectedConditions"
-        :conditionsList="conditionsList"
-        @update:selectedConditions="selectedConditions = $event"
-      />
-
-      <button class="add-btn" @click="handleClick">
-        {{ isEditing ? '更新' : '追加' }}
-      </button>
-      <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
-    </div>
-    <h3
-      class="animationClass"
-      :class="{ 'animate__animated animate__bounce': isBouncing }"
-      @animationend="isBouncing = false"
-    >
-      トータルスコア: {{ totalScore }}
-    </h3>
-    <h4>パット数: {{ totalPTCount }}</h4>
-    <h4>バンカーショット数: {{ totalBunkerShots }}</h4>
-    <table>
-      <thead>
-        <tr>
-          <th>ホール</th>
-          <th>打数</th>
-          <th>詳細</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(shots, hole) in scores" :key="hole">
-          <td>{{ hole }}</td>
-          <td>{{ shots.length }}</td>
-          <td>
-            <ul>
-              <li
-                v-for="(shot, index) in shots.sort((a, b) => a.shot_number - b.shot_number)"
-                :key="index"
-                class="shot-details"
-              >
-                <span>{{ index + 1 }}打目: {{ shot.club }} - {{ shot.result }}</span>
-                <br />
-                <small>状況: {{ shot.conditions.join(', ') || 'なし' }}</small>
-                <br />
-                <div class="button-column">
-                  <button class="edit-btn" @click="editShot(hole, index, shot)">変更</button>
-                  <button class="delete-btn" @click="deleteShot(hole, index)">削除</button>
-                </div>
-              </li>
-            </ul>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../api/supabase'
 import { useRoute } from 'vue-router'
 import ClubSelector from '../components/ClubSelector.vue'
@@ -100,11 +7,13 @@ import HoleSelector from '../components/HoleSelector.vue'
 import ConditionSelector from '../components/ConditionSelector.vue'
 import ResultSelector from '../components/ResultSelector.vue'
 import DetailResultSelector from '@/components/DetailResultSelector.vue'
+import ShotHistory from '@/components/ShotHistory.vue'
 
 interface Shot {
   user_id: string
   round_date: string
   course_name: string
+  hole_number: number
   shot_number: number
   club: string
   result: string
@@ -121,9 +30,16 @@ const selectedCourseName = Array.isArray(route.params.courseName)
   ? route.params.courseName[0]
   : route.params.courseName // パラメーターの値を取得する
 const userId = ref<string>('')
-const holeNumber = ref<number>(1)
-const selectedConditions = ref<string[]>([])
-const scores = ref<Record<number, Shot[]>>({})
+const resultList = ref<string[]>([]) // 結果のリスト
+const detailResultList = ref<string[]>([]) // 結果(詳細)のリスト
+
+const selectedHoleNumber = ref<number>(1) // 選択しているホールナンバー
+const selectedResult = ref<string>('') // 選択している結果
+const selectedDetailResult = ref<string>('') // 選択している結果(詳細)のリスト
+const selectedConditions = ref<string[]>([]) // 選択している状況
+
+const scores = ref<Record<number, Shot[]>>({}) // スコアのデータレコード
+
 const isEditing = ref<boolean>(false) // 変更モードかどうかを表すフラグ
 const isBouncing = ref(false) // ラベルのアニメーション適用フラグ
 const editingHole = ref<number | null>(null)
@@ -133,9 +49,19 @@ const successMessage = ref<string>('') // 成功メッセージの状態管理
 
 onMounted(async () => {
   const { data: user } = await supabase.auth.getUser()
-  if (!user || !user.user) return
+  if (!user || !user.user) {
+    handleError('ユーザー情報が取得できません')
+    return
+  }
   userId.value = user.user.id
+  try {
+    await fetchData()
+  } catch (error) {
+    handleError(`データの取得に失敗しました: ${(error as Error).message}`)
+  }
+})
 
+const fetchData = async () => {
   await Promise.all([
     fetchClubs(),
     fetchConditionsList(),
@@ -143,17 +69,16 @@ onMounted(async () => {
     fetchResultList(),
     fetchDetailResultList(),
   ])
-})
+}
 
 // HoleSelectorから受け取った値を更新
 const updateHole = (newHoleNumber: number) => {
-  holeNumber.value = newHoleNumber
+  selectedHoleNumber.value = newHoleNumber
 }
 
 //追加(更新)ボタン押下時のイベント
 const handleClick = async () => {
   isBouncing.value = false
-  await nextTick() // レンダリング後にアニメーションを再適用
   isBouncing.value = true
 
   if (isEditing.value) {
@@ -195,6 +120,7 @@ const organizeShots = (data: any[]) => {
       user_id: userId.value,
       round_date: selectedRoundDate,
       course_name: selectedCourseName,
+      hole_number: shot.hole_number,
       shot_number: shot.shot_number,
       club: shot.club,
       result: shot.result,
@@ -212,8 +138,8 @@ const saveShotToSupabase = async (shot: Shot) => {
       user_id: userId.value,
       round_date: selectedRoundDate,
       course_name: selectedCourseName,
-      hole_number: holeNumber.value,
-      shot_number: currentShotCount.value,
+      hole_number: shot.hole_number,
+      shot_number: shot.shot_number,
       club: shot.club,
       result: shot.result,
       detailResult: shot.detailResult,
@@ -234,11 +160,11 @@ const handleError = (message: string) => {
 }
 
 // Supabaseからデータを削除
-const deleteShotFromSupabase = async (hole: number, shotNumber: number) => {
+const deleteShotFromSupabase = async (holeNumber: number, shotNumber: number) => {
   const { error } = await supabase
     .from('golf_shots')
     .delete()
-    .match({ round_date: selectedRoundDate, hole_number: hole, shot_number: shotNumber })
+    .match({ round_date: selectedRoundDate, hole_number: holeNumber, shot_number: shotNumber })
 
   if (error) {
     handleError(`保存に失敗しました: ${error.message}`)
@@ -248,20 +174,29 @@ const deleteShotFromSupabase = async (hole: number, shotNumber: number) => {
   }
 }
 
-// Supabase内のショット番号を更新（削除後の整合性維持）
-const updateShotNumbersInSupabase = async (hole: number) => {
-  if (!scores.value[hole]) return
+// shot_numberを1からの連番で振りなおす
+const updateShotNumbersInSupabase = async (holeNumber: number) => {
+  // 1. 指定したhole_numberのレコードを取得 (shot_number順にソート)
+  const { data: shots, error } = await supabase
+    .from('golf_shots')
+    .select('id, shot_number')
+    .eq('hole_number', holeNumber)
+    .order('shot_number', { ascending: true })
 
-  for (let i = 0; i < scores.value[hole].length; i++) {
-    const shotNumber = i + 1
-    const { error } = await supabase.from('golf_shots').update({ shot_number: shotNumber }).match({
-      hole_number: hole,
-      club: scores.value[hole][i].club,
-    })
+  if (error) throw error
+  if (!shots || shots.length === 0) {
+    console.log('該当レコードなし')
+    return
+  }
 
-    if (error) {
-      handleError(`ショット番号の更新に失敗しました: ${error.message}`)
-    }
+  // 2. 連番に更新
+  for (let i = 0; i < shots.length; i++) {
+    const { error: updateError } = await supabase
+      .from('golf_shots')
+      .update({ shot_number: i + 1 })
+      .eq('id', shots[i].id)
+
+    if (updateError) throw updateError
   }
 }
 
@@ -283,13 +218,9 @@ const selectClub = (club: string) => {
   selectedClub.value = club
 }
 
-// 結果のリスト
-const resultList = ref<string[]>([])
-const selectedResult = ref<string>('')
 // 結果リストを取得する
 const fetchResultList = async () => {
   const { data, error } = await supabase.from('resultList').select('name')
-  console.log(data)
 
   if (error) {
     return
@@ -302,13 +233,9 @@ const selectResult = (result: string) => {
   selectedResult.value = result
 }
 
-// 結果(詳細)のリスト
-const detailResultList = ref<string[]>([])
-const selectedDetailResult = ref<string>('')
 // 結果リストを取得する
 const fetchDetailResultList = async () => {
   const { data, error } = await supabase.from('detailResultList').select('name')
-  console.log(data)
 
   if (error) {
     return
@@ -373,10 +300,11 @@ const totalBunkerShots = computed<number>(() => {
     .filter((shot) => shot.conditions.includes('バンカー')).length
 })
 
+// 現在の打数
 const currentShotCount = computed<number>(() => {
   return isEditing.value
-    ? (editingIndex.value ?? 0) + 1
-    : (scores.value[holeNumber.value]?.length || 0) + 1
+    ? (editingIndex.value ?? 0)
+    : (scores.value[selectedHoleNumber.value]?.length || 0) + 1
 })
 
 const validateShot = () => {
@@ -392,6 +320,7 @@ const validateShot = () => {
   return true
 }
 
+// ショット履歴を追加する
 const addShot = async () => {
   if (!validateShot()) return
 
@@ -399,6 +328,7 @@ const addShot = async () => {
     user_id: userId.value,
     round_date: selectedRoundDate,
     course_name: selectedCourseName,
+    hole_number: selectedHoleNumber.value,
     shot_number: currentShotCount.value,
     club: selectedClub.value,
     result: selectedResult.value,
@@ -409,42 +339,34 @@ const addShot = async () => {
   const success = await saveShotToSupabase(newShot)
   if (!success) return
 
-  if (!scores.value[holeNumber.value]) {
-    scores.value[holeNumber.value] = []
+  if (!scores.value[selectedHoleNumber.value]) {
+    scores.value[selectedHoleNumber.value] = []
   }
-  scores.value[holeNumber.value].push(newShot)
+  scores.value[selectedHoleNumber.value].push(newShot)
   resetSelection()
 }
 
-const editShot = (hole: number, index: number, shot: Shot) => {
-  holeNumber.value = hole
+// 明細の変更ボタン押下時
+const editShot = (shot: Shot) => {
+  console.log(shot)
+  selectedHoleNumber.value = shot.hole_number
   selectedClub.value = shot.club
   selectedResult.value = shot.result
+  selectedDetailResult.value = shot.detailResult
   selectedConditions.value = [...shot.conditions]
   isEditing.value = true
-  editingHole.value = hole
-  editingIndex.value = index
+  editingHole.value = shot.hole_number
+  editingIndex.value = shot.shot_number
 }
 
+// ショット履歴を更新する
 const updateShot = async () => {
   if (!validateShot()) return
 
   if (editingHole.value !== null && editingIndex.value !== null) {
-    // ローカルのスコア更新
-    const updatedShot: Shot = {
-      user_id: userId.value,
-      round_date: selectedRoundDate,
-      course_name: selectedCourseName,
-      shot_number: currentShotCount.value,
-      club: selectedClub.value,
-      result: selectedResult.value,
-      detailResult: selectedDetailResult.value,
-      conditions: [...selectedConditions.value],
-    }
-    scores.value[editingHole.value][editingIndex.value] = updatedShot
-
     // Supabaseのデータ更新
-    const shotNumber = editingIndex.value + 1
+    const shotNumber = editingIndex.value
+    console.log(shotNumber)
     const { error } = await supabase
       .from('golf_shots')
       .update({
@@ -462,20 +384,20 @@ const updateShot = async () => {
       handleError(`更新に失敗しました: ${error.message}`)
     } else {
       resetEditing() // 編集モードをリセット
+      resetSelection() // 選択状態を解除
+      createOrLoadRound() // データを再取得
     }
   }
 }
 
+// 編集モードをリセットする
 const resetEditing = () => {
   isEditing.value = false
   editingHole.value = null
   editingIndex.value = null
-  selectedClub.value = clubs.value[0] || '1W'
-  selectedResult.value = '〇'
-  selectedDetailResult.value = ''
-  selectedConditions.value = []
 }
 
+// 選択状態を解除
 const resetSelection = () => {
   selectedClub.value = ''
   selectedResult.value = ''
@@ -483,24 +405,98 @@ const resetSelection = () => {
   selectedConditions.value = []
 }
 
-const deleteShot = async (hole: number, index: number) => {
-  const shotNumber = index + 1
-
-  const success = await deleteShotFromSupabase(hole, shotNumber)
+// ショット履歴を削除する
+const deleteShot = async (shot: Shot) => {
+  const success = await deleteShotFromSupabase(shot.hole_number, shot.shot_number)
   if (!success) return
 
   // ローカルのscoresからデータを削除
-  scores.value[hole].splice(index, 1)
+  scores.value[shot.hole_number].splice(shot.shot_number, 1)
 
   // そのホールにデータがない場合はホールごと削除
-  if (scores.value[hole].length === 0) {
-    delete scores.value[hole]
+  if (scores.value[shot.hole_number].length === 0) {
+    delete scores.value[shot.hole_number]
+    return
   }
 
-  // 残っているショットの番号を更新する
-  await updateShotNumbersInSupabase(hole)
+  // ショットの番号を再番して更新する
+  await updateShotNumbersInSupabase(shot.hole_number)
+
+  // データを再取得する
+  createOrLoadRound()
 }
 </script>
+
+<template>
+  <div class="container">
+    <h2 class="animate__animated animate__fadeIn">Round Log</h2>
+
+    <router-link to="/round-list">戻る</router-link>
+
+    <div class="score-input">
+      <HoleSelector
+        :holeNumber="Number(selectedHoleNumber)"
+        :min="1"
+        :max="18"
+        :disabled="isEditing"
+        @update:holeNumber="updateHole"
+      />
+
+      <h2>{{ currentShotCount }}打目</h2>
+
+      <div class="label-container">
+        <label class="label-title">クラブ: </label>
+        <ClubSelector :clubs="clubs" :selectedClub="selectedClub" :selectClub="selectClub" />
+      </div>
+
+      <div class="label-container">
+        <label class="label-title">結果: </label>
+        <ResultSelector
+          :resultList="resultList"
+          :selectedResult="selectedResult"
+          :selectResult="selectResult"
+        />
+      </div>
+
+      <div class="label-container">
+        <label class="label-title">結果の詳細: </label>
+        <DetailResultSelector
+          :detailResultList="detailResultList"
+          :selectedDetailResult="selectedDetailResult"
+          :selectDetailResult="selectDetailResult"
+        />
+      </div>
+
+      <div class="label-container">
+        <label class="label-title">状況: </label>
+        <ConditionSelector
+          :filteredConditions="filteredConditions"
+          :selectedConditions="selectedConditions"
+          :conditionsList="conditionsList"
+          @update:selectedConditions="selectedConditions = $event"
+        />
+      </div>
+
+      <button class="button-add-edit-btn" @click="handleClick">
+        {{ isEditing ? '更新' : '追加' }}
+      </button>
+      <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+      <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
+    </div>
+
+    <h4
+      class="animationClass"
+      :class="{ 'animate__animated animate__bounce': isBouncing }"
+      @animationend="isBouncing = false"
+    >
+      トータルスコア: {{ totalScore }}
+    </h4>
+    <h5>パット数: {{ totalPTCount }}</h5>
+    <h5>バンカーショット数: {{ totalBunkerShots }}</h5>
+
+    <ShotHistory :scores="scores" @edit-shot="editShot" @delete-shot="deleteShot" />
+  </div>
+</template>
 
 <style scoped>
 .container {
@@ -512,25 +508,10 @@ const deleteShot = async (hole: number, index: number) => {
   align-items: center;
   justify-content: center;
   user-select: none; /* テキスト選択を防止 */
+  font-family: 'Roboto', sans-serif;
 }
 .score-input {
   margin-bottom: 20px;
-}
-.hole-selector {
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 10px 0;
-}
-.hole-selector input {
-  font-size: 24px;
-}
-.hole-selector button {
-  padding: 5px 15px;
-  font-size: 16px;
-  cursor: pointer;
 }
 input[type='number'] {
   width: 50px;
@@ -544,63 +525,43 @@ input[type='number'] {
   gap: 5px;
   margin: 10px 0;
 }
-button {
-  padding: 8px 15px;
-  border: 1px solid #ccc;
-  cursor: pointer;
-  background-color: white;
-  border-radius: 5px;
-}
-button.selected {
-  background-color: #4caf50;
-  color: white;
-  border-color: #4caf50;
-}
-button.add-btn {
-  background-color: #008cba;
+.button-add-edit-btn {
+  background-color: hsl(253, 38%, 28%);
   color: white;
   border: none;
+  width: 100px;
+  height: 30px;
+  font-size: 12px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
 }
+
 h2 {
-  margin: 10px 0;
+  margin: 0px 0;
+  font-family: 'Roboto', sans-serif;
 }
 h3 {
-  margin: 10px 0;
+  margin: 0px 0;
+  font-family: 'Roboto', sans-serif;
 }
 h4 {
   margin: 0px 0;
+  font-family: 'Roboto', sans-serif;
 }
-.edit-btn {
-  background-color: hsl(135, 69%, 42%);
-  color: white;
-  border: none;
+h5 {
+  margin: 0px 0;
+  font-family: 'Roboto', sans-serif;
 }
-.delete-btn {
-  background-color: #62757c;
-  color: white;
-  border: none;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-}
-th,
-td {
-  border: 1px solid #000; /* 罫線を追加 */
-  text-align: center;
-}
-.shot-details {
+
+.label-container {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1px;
+  flex-direction: column;
+  gap: 0px; /* ラベルとコンポーネントの間隔を狭める */
 }
-.button-column {
-  display: flex;
-  flex-direction: row;
-  gap: 5px;
-  margin-left: 10px;
+.label-title {
+  margin-bottom: 0px;
+  font-size: 10px;
 }
 .error-message {
   color: red;
@@ -610,5 +571,8 @@ td {
 .success-message {
   color: green;
   font-weight: bold;
+}
+.small-text {
+  font-size: 12px; /* 文字サイズを小さくする */
 }
 </style>
