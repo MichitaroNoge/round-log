@@ -3,7 +3,7 @@
     <button
       v-for="detailResult in detailResultList"
       :key="detailResult"
-      :class="{ selected: selectedDetailResult === detailResult }"
+      :class="{ selected: selectedDetailResults.includes(detailResult) }"
       @click="toggleDetailResult(detailResult)"
     >
       {{ detailResult }}
@@ -14,28 +14,29 @@
 <script setup lang="ts">
 import type { PropType } from 'vue'
 
+// コンポーネントのプロパティを定義
 const props = defineProps({
   detailResultList: {
     type: Array as PropType<string[]>,
     required: true,
   },
-  selectedDetailResult: {
-    type: String,
-    required: false,
-  },
-  selectDetailResult: {
-    type: Function as PropType<(result: string) => void>,
+  selectedDetailResults: {
+    type: Array as PropType<string[]>,
     required: true,
   },
 })
 
+const emit = defineEmits<{
+  (e: 'updateDetailResults', results: string[]): void
+}>()
+
 // 選択・非選択を切り替える
 function toggleDetailResult(detailResult: string) {
-  if (props.selectedDetailResult === detailResult) {
-    props.selectDetailResult('')
-  } else {
-    props.selectDetailResult(detailResult)
-  }
+  const newSelection = props.selectedDetailResults.includes(detailResult)
+    ? props.selectedDetailResults.filter((item) => item !== detailResult)
+    : [...props.selectedDetailResults, detailResult]
+
+  emit('updateDetailResults', newSelection)
 }
 </script>
 

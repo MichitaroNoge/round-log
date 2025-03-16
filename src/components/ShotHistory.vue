@@ -9,7 +9,7 @@ interface Shot {
   shot_number: number
   club: string
   result: string
-  detailResult: string
+  detailResults: string[]
   conditions: string[]
 }
 
@@ -36,19 +36,96 @@ const deleteShot = (shot: Shot) => {
 </script>
 
 <template>
-  <div v-for="(shots, holeNumber) in props.scores" :key="holeNumber">
-    <p>{{ holeNumber }}H</p>
-    <ul>
-      <li v-for="shot in shots" :key="shot.shot_number">
-        <span
-          >{{ shot.shot_number }}打目 - {{ shot.club }} - {{ shot.result }} -
-          {{ shot.detailResult || 'なし' }} - ({{ shot.conditions.join(', ') || 'なし' }})</span
-        >
-        <button @click="editShot(shot)">編集</button>
-        <button @click="deleteShot(shot)">削除</button>
-      </li>
-    </ul>
+  <div class="score-table">
+    <table>
+      <thead>
+        <tr>
+          <th>ホールNo</th>
+          <th>打数</th>
+          <th>クラブ</th>
+          <th>結果</th>
+          <th>詳細結果</th>
+          <th>状況</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template v-for="(shots, holeNumber) in props.scores" :key="holeNumber">
+          <template v-for="(shot, index) in shots" :key="shot.shot_number">
+            <tr>
+              <td v-if="index === 0" :rowspan="shots.length">{{ holeNumber }}H</td>
+              <td>{{ shot.shot_number }}打目</td>
+              <td>{{ shot.club }}</td>
+              <td>{{ shot.result }}</td>
+              <td>{{ shot.detailResults.length ? shot.detailResults.join(', ') : 'なし' }}</td>
+              <td>{{ shot.conditions.length ? shot.conditions.join(', ') : 'なし' }}</td>
+              <td class="action-buttons">
+                <button @click="editShot(shot)" class="edit-btn">編集</button>
+                <button @click="deleteShot(shot)" class="delete-btn">削除</button>
+              </td>
+            </tr>
+          </template>
+        </template>
+      </tbody>
+    </table>
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.score-table {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  font-size: 12px; /* フォントサイズを小さく */
+}
+
+th,
+td {
+  padding: 4px 8px;
+  text-align: left;
+}
+
+th {
+  background-color: #5981af;
+  color: white;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px; /* ボタンを水平方向に並べる */
+}
+
+.edit-btn,
+.delete-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.edit-btn {
+  background-color: #5cb85c;
+  color: white;
+}
+
+.delete-btn {
+  background-color: #d9534f;
+  color: white;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+</style>

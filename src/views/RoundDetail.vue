@@ -17,7 +17,7 @@ interface Shot {
   shot_number: number
   club: string
   result: string
-  detailResult: string
+  detailResults: string[]
   conditions: string[]
 }
 
@@ -35,7 +35,7 @@ const detailResultList = ref<string[]>([]) // 結果(詳細)のリスト
 
 const selectedHoleNumber = ref<number>(1) // 選択しているホールナンバー
 const selectedResult = ref<string>('') // 選択している結果
-const selectedDetailResult = ref<string>('') // 選択している結果(詳細)のリスト
+const selectedDetailResults = ref<string[]>([]) // 選択している結果(詳細)のリスト
 const selectedConditions = ref<string[]>([]) // 選択している状況
 
 const scores = ref<Record<number, Shot[]>>({}) // スコアのデータレコード
@@ -102,7 +102,14 @@ const createOrLoadRound = async () => {
 
   if (data.length > 0) {
     // 既存のラウンドデータが存在する場合
-    organizeShots(data)
+    // hole_number → shot_number の昇順でソートしてから整理
+    const sortedData = data.sort((a, b) => {
+      if (a.hole_number === b.hole_number) {
+        return a.shot_number - b.shot_number
+      }
+      return a.hole_number - b.hole_number
+    })
+    organizeShots(sortedData)
   } else {
     // 新しいラウンド作成
     scores.value = {}
@@ -124,11 +131,14 @@ const organizeShots = (data: any[]) => {
       shot_number: shot.shot_number,
       club: shot.club,
       result: shot.result,
-      detailResult: shot.detailResult,
+      detailResults: shot.detailResults,
       conditions: shot.conditions,
     })
   })
   scores.value = organizedScores
+
+  console.log('scores')
+  console.log(scores)
 }
 
 // Supabaseにデータを保存
@@ -142,7 +152,7 @@ const saveShotToSupabase = async (shot: Shot) => {
       shot_number: shot.shot_number,
       club: shot.club,
       result: shot.result,
-      detailResult: shot.detailResult,
+      detailResults: shot.detailResults,
       conditions: shot.conditions,
     },
   ])
@@ -243,10 +253,6 @@ const fetchDetailResultList = async () => {
 
   detailResultList.value = data.map((result) => result.name)
 }
-// 結果(詳細)を選択する
-const selectDetailResult = (detailResult: string) => {
-  selectedDetailResult.value = detailResult
-}
 
 // 状況リスト
 const conditionsList = ref<{ name: string; groupId: string }[]>([])
@@ -332,7 +338,7 @@ const addShot = async () => {
     shot_number: currentShotCount.value,
     club: selectedClub.value,
     result: selectedResult.value,
-    detailResult: selectedDetailResult.value,
+    detailResults: [...selectedDetailResults.value],
     conditions: [...selectedConditions.value],
   }
 
@@ -352,7 +358,7 @@ const editShot = (shot: Shot) => {
   selectedHoleNumber.value = shot.hole_number
   selectedClub.value = shot.club
   selectedResult.value = shot.result
-  selectedDetailResult.value = shot.detailResult
+  selectedDetailResults.value = [...shot.detailResults]
   selectedConditions.value = [...shot.conditions]
   isEditing.value = true
   editingHole.value = shot.hole_number
@@ -372,7 +378,7 @@ const updateShot = async () => {
       .update({
         club: selectedClub.value,
         result: selectedResult.value,
-        detailResult: selectedDetailResult.value,
+        detailResults: selectedDetailResults.value,
         conditions: selectedConditions.value,
       })
       .match({
@@ -401,7 +407,7 @@ const resetEditing = () => {
 const resetSelection = () => {
   selectedClub.value = ''
   selectedResult.value = ''
-  selectedDetailResult.value = ''
+  selectedDetailResults.value = []
   selectedConditions.value = []
 }
 
@@ -462,8 +468,8 @@ const deleteShot = async (shot: Shot) => {
         <label class="label-title">結果の詳細: </label>
         <DetailResultSelector
           :detailResultList="detailResultList"
-          :selectedDetailResult="selectedDetailResult"
-          :selectDetailResult="selectDetailResult"
+          :selectedDetailResults="selectedDetailResults"
+          @updateDetailResults="selectedDetailResults = $event"
         />
       </div>
 

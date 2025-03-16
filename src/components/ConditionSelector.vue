@@ -12,14 +12,16 @@
 </template>
 
 <script setup lang="ts">
+import type { PropType } from 'vue'
+
 // コンポーネントのプロパティを定義
 const props = defineProps({
   filteredConditions: {
-    type: Array as () => string[],
+    type: Array as PropType<string[]>,
     required: true,
   },
   selectedConditions: {
-    type: Array as () => string[],
+    type: Array as PropType<string[]>,
     required: true,
   },
   conditionsList: {
