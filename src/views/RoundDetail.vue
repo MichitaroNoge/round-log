@@ -76,16 +76,23 @@ const updateHole = (newHoleNumber: number) => {
   selectedHoleNumber.value = newHoleNumber
 }
 
-//追加(更新)ボタン押下時のイベント
+// 追加(更新)ボタン押下時のイベント
 const handleClick = async () => {
-  isBouncing.value = false
-  isBouncing.value = true
+  // isBouncing.value = false
+  // isBouncing.value = true
 
   if (isEditing.value) {
     updateShot()
   } else {
     addShot()
   }
+}
+
+// キャンセルボタン押下時のイベント
+const handleCancel = () => {
+  // キャンセルの処理
+  isEditing.value = false
+  resetSelection()
 }
 
 // ラウンドの作成・ロード
@@ -435,8 +442,6 @@ const deleteShot = async (shot: Shot) => {
 
 <template>
   <div class="container">
-    <h2 class="animate__animated animate__fadeIn">Round Log</h2>
-
     <router-link to="/round-list">戻る</router-link>
 
     <div class="score-input">
@@ -482,10 +487,13 @@ const deleteShot = async (shot: Shot) => {
           @update:selectedConditions="selectedConditions = $event"
         />
       </div>
+      <div class="button-container">
+        <button class="button-add-edit-btn" @click="handleClick">
+          {{ isEditing ? '更新' : '追加' }}
+        </button>
+        <button v-if="isEditing" class="button-cancel-btn" @click="handleCancel">キャンセル</button>
+      </div>
 
-      <button class="button-add-edit-btn" @click="handleClick">
-        {{ isEditing ? '更新' : '追加' }}
-      </button>
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
       <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
     </div>
@@ -505,6 +513,12 @@ const deleteShot = async (shot: Shot) => {
 </template>
 
 <style scoped>
+.button-container {
+  display: flex;
+  gap: 8px; /* ボタンの間に適度な間隔を追加 */
+  justify-content: center; /* 横方向の中央配置 */
+  align-items: center; /* 縦方向の中央配置 */
+}
 .container {
   max-width: 600px;
   margin: auto;
@@ -531,8 +545,8 @@ input[type='number'] {
   gap: 5px;
   margin: 10px 0;
 }
-.button-add-edit-btn {
-  background-color: hsl(253, 38%, 28%);
+.button-add-edit-btn,
+.button-cancel-btn {
   color: white;
   border: none;
   width: 100px;
@@ -542,7 +556,14 @@ input[type='number'] {
   justify-content: center;
   border-radius: 4px;
 }
-
+.button-add-edit-btn {
+  background-color: hsl(253, 38%, 28%);
+  color: white;
+}
+.button-cancel-btn {
+  background-color: #f44336;
+  color: white;
+}
 h2 {
   margin: 0px 0;
   font-family: 'Roboto', sans-serif;
